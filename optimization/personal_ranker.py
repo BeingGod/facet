@@ -170,7 +170,7 @@ def _load_burst_scores(conn, paths, weights):
     from processing.burst_score import compute_burst_score
     from api.db_helpers import select_in_chunks
     cols = ("path, aggregate, aesthetic, tech_sharpness, is_blink, face_count, "
-            "eyes_open_score, expression_score")
+            "eyes_open_score, expression_score, liqe_score, exposure_score, highlight_clipped")
     out = {}
     for r in select_in_chunks(
             conn, f"SELECT {cols} FROM photos WHERE path IN ({{placeholders}})", paths):

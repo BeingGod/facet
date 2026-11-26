@@ -431,6 +431,17 @@ def test_burst_weights_defaults_and_partial_override():
     assert partial[1:] == DEFAULT_BURST_WEIGHTS[1:]
 
 
+def test_burst_score_liqe_exposure_highlight_terms():
+    photo = {'aggregate': 5.0, 'aesthetic': 5.0, 'tech_sharpness': 1.0, 'is_blink': 0,
+             'liqe_score': 8.0, 'exposure_score': 6.0, 'highlight_clipped': 1}
+    base = compute_burst_score(photo)
+    assert compute_burst_score(photo, DEFAULT_BURST_WEIGHTS[:6]) == pytest.approx(base)
+    w = burst_weights_from_config({'weight_liqe': 0.3, 'weight_exposure': 0.25,
+                                   'penalty_highlight_clipped': 1.5})
+    assert compute_burst_score(photo, w) == pytest.approx(base + 2.4 + 1.5 - 1.5)
+    assert compute_burst_score(dict(photo, liqe_score=None, highlight_clipped=0), w) == pytest.approx(base + 1.5)
+
+
 def test_build_ranker_dataset_heuristic_reflects_custom_weights(keeper_db):
     signals = _seed_photos(keeper_db, n=6)
     _add_culling(keeper_db, signals, count=2)

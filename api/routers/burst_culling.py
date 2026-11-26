@@ -72,7 +72,7 @@ def _rejected_clause(user_id):
 _CULLING_PHOTO_COLS = (
     'filename', 'date_taken', 'aggregate', 'aesthetic', 'tech_sharpness', 'is_blink',
     'eyes_open_score', 'expression_score', 'face_count', 'category',
-    'sequence_kind', 'sequence_ev_offset',
+    'sequence_kind', 'sequence_ev_offset', 'liqe_score', 'exposure_score', 'highlight_clipped',
 )
 
 
