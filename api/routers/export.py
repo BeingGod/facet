@@ -1339,6 +1339,24 @@ def _free_recycle_name(dest: str) -> str:
     return f'{stem} ({number}){ext}'
 
 
+def _make_recycle_dirs(recycle: str, directory: str) -> None:
+    """Create ``directory`` inside the bin with the bin's own permission bits.
+
+    A root-run container would otherwise leave ``0755`` root-owned folders
+    that the share's users cannot empty or restore from over SMB.
+    """
+    os.makedirs(recycle, exist_ok=True)
+    mode = os.stat(recycle).st_mode & 0o7777
+    current = recycle
+    for part in os.path.relpath(directory, recycle).split(os.sep):
+        if part in ('', os.curdir):
+            continue
+        current = os.path.join(current, part)
+        if not os.path.isdir(current):
+            os.makedirs(current, exist_ok=True)
+            os.chmod(current, mode)
+
+
 def _trash_file(send2trash, src: str) -> None:
     """Trash ``src``: into its configured recycle bin, else the OS trash.
 
@@ -1355,7 +1373,7 @@ def _trash_file(send2trash, src: str) -> None:
         if not path.startswith(source + os.sep):
             continue
         dest = _free_recycle_name(os.path.join(recycle, os.path.relpath(path, source)))
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        _make_recycle_dirs(recycle, os.path.dirname(dest))
         shutil.move(path, dest)
         return
     send2trash.send2trash(src)

@@ -1620,6 +1620,11 @@ class TestPhotoDelete:
         assert not os.path.exists(path)
         assert earlier.read_bytes() == b"earlier"
         assert (earlier.parent / "a (1).jpg").read_bytes() == b"new"
+        made = recycle / "Photography" / "other"
+        from api.routers.export import _make_recycle_dirs
+        os.chmod(recycle, 0o777)
+        _make_recycle_dirs(str(recycle), str(made))
+        assert made.stat().st_mode & 0o777 == 0o777
         assert path not in _remaining_paths(db)
 
     def test_dry_run_reports_would_trash_and_writes_nothing(self, client, tmp_path):
