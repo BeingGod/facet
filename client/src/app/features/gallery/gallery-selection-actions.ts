@@ -574,9 +574,7 @@ export class GallerySelectionActions {
   /**
    * Bulk "Delete…": paths only, never `filters`/`exclude` (decision 8 / B5) --
    * a filter-driven request is the one shape that can trash an unbounded set,
-   * so under view scope this is disabled rather than switched to a
-   * filter-based request; the guard below is a belt-and-braces check against
-   * the button state, not the primary gate.
+   * so under view scope the view is resolved to its (capped) path list first.
    *
    * Drops rows via `GalleryStore.removePhotos` (decision 6 bullet 4), never
    * `loadPhotos()` -- the existing cull reload is correct for cull, whose
@@ -592,9 +590,12 @@ export class GallerySelectionActions {
     const explicit = explicitPaths !== undefined;
     // Explicit paths name their own targets, so view scope -- which `paths`
     // cannot express -- is not in play.
-    if (!explicit && this.viewScoped()) return;
-    const paths = explicit ? [...explicitPaths] : [...this.selectedPaths()];
-    if (!paths.length) return;
+    // A whole-view selection is materialized into explicit paths first (the
+    // server refuses views over its 10,000-path cap with a 412), so the delete
+    // request itself still never carries filters. The delete dialog states the
+    // resolved count, so no separate whole-view confirmation is shown.
+    const paths = explicit ? [...explicitPaths] : await this.resolveSelectionPaths(null);
+    if (!paths?.length) return;
     const selectedSet = new Set(paths);
     const loaded = this.store.photos().filter(p => selectedSet.has(p.path));
     // One explicit path is the context menu's single-photo delete: it gets the

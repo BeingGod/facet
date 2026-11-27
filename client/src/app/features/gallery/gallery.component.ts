@@ -968,9 +968,7 @@ const SET_KIND_TOGGLE: Record<string, keyof HiddenFilterFlags> = {
                         [matTooltip]="viewScoped() ? (I18N.gallery.selection.explicit_required | translate) : ''"
                         matTooltipPosition="right"><mat-icon>hide_image</mat-icon><span>{{ I18N.photo_detail.remove_catalog.action | translate }}</span></button>
                 @if (store.config()?.cull?.trash_available) {
-                  <button mat-menu-item disabledInteractive [disabled]="viewScoped()" (click)="selectionActions.deleteSelected()"
-                          [matTooltip]="viewScoped() ? (I18N.cull.delete_disabled_view_scope_tooltip | translate) : ''"
-                          matTooltipPosition="right"><mat-icon>delete</mat-icon><span>{{ I18N.cull.delete_action | translate }}</span></button>
+                  <button mat-menu-item (click)="selectionActions.deleteSelected()"><mat-icon>delete</mat-icon><span>{{ I18N.cull.delete_action | translate }}</span></button>
                 }
               }
             </ng-template>

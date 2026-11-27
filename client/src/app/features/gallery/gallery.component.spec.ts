@@ -3949,11 +3949,26 @@ describe('GalleryComponent', () => {
       });
     }
 
-    // decision 8 / B5: `paths` cannot express a view-scoped selection, so the
-    // toolbar button is disabled under it -- this is the belt-and-braces guard
-    // behind that, proven directly rather than only via the disabled attribute.
-    it('does nothing under view scope, even if somehow invoked', async () => {
+    it('resolves a view-scoped selection into explicit paths (never filters/exclude)', async () => {
       mockStore.viewScopeSelected.set(true);
+      mockStore.pathsInView = vi.fn(async () => ['/a.jpg', '/b.jpg']);
+      const dialog = TestBed.inject(MatDialog);
+      (dialog.open as Mock).mockReturnValue({ afterClosed: () => of(null) });
+
+      await component.selectionActions.deleteSelected();
+
+      expect(mockStore.pathsInView).toHaveBeenCalledOnce();
+      expect(dialog.open).toHaveBeenCalledOnce();
+      const data = (dialog.open as Mock).mock.calls[0][1].data;
+      expect(data.paths).toEqual(['/a.jpg', '/b.jpg']);
+      expect(data.count).toBe(2);
+      expect(data.filters).toBeUndefined();
+      expect(data.exclude).toBeUndefined();
+    });
+
+    it('does nothing under view scope when the view cannot be resolved', async () => {
+      mockStore.viewScopeSelected.set(true);
+      mockStore.pathsInView = vi.fn(async () => null);
       const dialog = TestBed.inject(MatDialog);
 
       await component.selectionActions.deleteSelected();
@@ -4187,16 +4202,12 @@ describe('GalleryComponent', () => {
       expect(button!.getAttribute('aria-disabled')).toBeNull();
     });
 
-    it('is disabled under a view-scoped ("select all in view") selection, with a tooltip explaining why', () => {
+    it('stays enabled under a view-scoped ("select all in view") selection', () => {
       const f = render(true, true);
       const button = deleteButton(f);
       expect(button).not.toBeNull();
-      // disabledInteractive: aria-disabled instead of the native attribute, so the tooltip still shows.
-      expect(button!.getAttribute('aria-disabled')).toBe('true');
       expect(button!.disabled).toBe(false);
-      const tooltipDebug = f.debugElement.queryAll(By.directive(MatTooltip))
-        .find(de => de.nativeElement === button);
-      expect(tooltipDebug?.injector.get(MatTooltip).message).toBe(I18N.cull.delete_disabled_view_scope_tooltip);
+      expect(button!.getAttribute('aria-disabled')).toBeNull();
     });
   });
 
@@ -4393,7 +4404,6 @@ describe('GalleryComponent', () => {
         [I18N.stacks.create, I18N.stacks.explicit_only],
         [I18N.photo_refresh.title, S.explicit_required],
         [I18N.photo_detail.remove_catalog.action, S.explicit_required],
-        [I18N.cull.delete_action, I18N.cull.delete_disabled_view_scope_tooltip],
       ];
       for (const [label, why] of reasons) {
         const item = menuItem(actions, label)!;
@@ -4501,12 +4511,6 @@ describe('GalleryComponent', () => {
       expect(menuItem(openSelectionActions(f), I18N.cull.action)!.querySelector('mat-icon')!.textContent).toBe('move_to_inbox');
     });
 
-    it('keeps the tooltip on the disabled delete entry (disabledInteractive)', () => {
-      const f = render({ viewScoped: true });
-      const del = menuItem(openSelectionActions(f), I18N.cull.delete_action)!;
-      expect(del.getAttribute('aria-disabled')).toBe('true');
-      expect(del.disabled).toBe(false);
-    });
 
     // disabledInteractive leaves a <button> clickable, so these must stay natively
     // disabled or a click mid-download starts a second download.
@@ -4523,10 +4527,11 @@ describe('GalleryComponent', () => {
       }
     });
 
-    it('uses the view-scope text as the delete tooltip when the selection is the whole view', () => {
+    it('keeps Delete enabled without a tooltip when the selection is the whole view', () => {
       const f = render({ viewScoped: true });
       const del = menuItem(openSelectionActions(f), I18N.cull.delete_action)!;
-      expect(tooltipOf(f, del)).toBe(I18N.cull.delete_disabled_view_scope_tooltip);
+      expect(del.getAttribute('aria-disabled')).toBeNull();
+      expect(tooltipOf(f, del)).toBeFalsy();
     });
 
     it('hides the desktop Actions trigger below md and keeps one phone Actions button', () => {
