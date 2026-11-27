@@ -1317,6 +1317,50 @@ def _require_trash_available():
     return send2trash
 
 
+def _recycle_bins() -> list[tuple[str, str]]:
+    """``viewer.cull.recycle_bins`` as (root, bin) pairs, deepest root first."""
+    bins = (VIEWER_CONFIG.get('cull', {}) or {}).get('recycle_bins') or {}
+    if not isinstance(bins, dict):
+        return []
+    pairs = [(os.path.realpath(source), os.path.realpath(target))
+             for source, target in bins.items()
+             if isinstance(source, str) and isinstance(target, str) and source and target]
+    return sorted(pairs, key=lambda pair: len(pair[0]), reverse=True)
+
+
+def _free_recycle_name(dest: str) -> str:
+    """``dest``, or ``name (n).ext`` when an earlier deletion already holds it."""
+    if not os.path.lexists(dest):
+        return dest
+    stem, ext = os.path.splitext(dest)
+    number = 1
+    while os.path.lexists(f'{stem} ({number}){ext}'):
+        number += 1
+    return f'{stem} ({number}){ext}'
+
+
+def _trash_file(send2trash, src: str) -> None:
+    """Trash ``src``: into its configured recycle bin, else the OS trash.
+
+    A file under a ``viewer.cull.recycle_bins`` root moves to the same
+    relative path inside that root's bin -- the layout of a NAS share's
+    network recycle bin (QNAP ``@Recycle``, Synology ``#recycle``), which a
+    plain unlink or ``send2trash``'s ``.Trash-<uid>`` never reaches. With the
+    bin on the same mount as the photos this is a rename, not a copy.
+    """
+    path = os.path.join(os.path.realpath(os.path.dirname(src)), os.path.basename(src))
+    for source, recycle in _recycle_bins():
+        if path == recycle or path.startswith(recycle + os.sep):
+            break
+        if not path.startswith(source + os.sep):
+            continue
+        dest = _free_recycle_name(os.path.join(recycle, os.path.relpath(path, source)))
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.move(path, dest)
+        return
+    send2trash.send2trash(src)
+
+
 def _check_cull_preview(body: CullApplyRequest, files: list[str], target_dir: Optional[str] = None) -> str:
     """Check the current resolved operation before its first filesystem write.
 
@@ -1468,7 +1512,7 @@ def api_cull_apply(
     succeeded = set()
     for src in files:
         try:
-            send2trash.send2trash(src)
+            _trash_file(send2trash, src)
             trashed += 1
             succeeded.add(src)
         except OSError:
@@ -1671,7 +1715,7 @@ def api_photo_delete(
         succeeded = set()
         for src in files:
             try:
-                send2trash.send2trash(src)
+                _trash_file(send2trash, src)
                 succeeded.add(src)
             except OSError as ex:
                 logger.exception("Failed to trash %s", src)

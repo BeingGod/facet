@@ -1595,6 +1595,33 @@ class TestPhotoDelete:
         assert body2["not_found"] == [path]
         assert body2["deleted"] == []
 
+    def test_delete_moves_into_the_configured_recycle_bin(self, client, tmp_path):
+        share = tmp_path / "share"
+        album = share / "Photography" / "trip"
+        album.mkdir(parents=True)
+        path = str(album / "a.jpg")
+        (album / "a.jpg").write_bytes(b"new")
+        recycle = share / "@Recycle"
+        earlier = recycle / "Photography" / "trip" / "a.jpg"
+        earlier.parent.mkdir(parents=True)
+        earlier.write_bytes(b"earlier")
+        db = _db(tmp_path, [(path, 0)])
+        fake_send2trash = mock.MagicMock()
+        config = {"cull": {"allow_trash": True, "recycle_bins": {str(share): str(recycle)}}}
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}.VIEWER_CONFIG", config),
+            mock.patch.dict("sys.modules", {"send2trash": mock.Mock(send2trash=fake_send2trash)}),
+        ):
+            resp = client.post("/api/photo/delete", json={"paths": [path], "dry_run": False})
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == [path]
+        assert fake_send2trash.call_args_list == []
+        assert not os.path.exists(path)
+        assert earlier.read_bytes() == b"earlier"
+        assert (earlier.parent / "a (1).jpg").read_bytes() == b"new"
+        assert path not in _remaining_paths(db)
+
     def test_dry_run_reports_would_trash_and_writes_nothing(self, client, tmp_path):
         path = _make_file(tmp_path, "a.jpg")
         db = _db(tmp_path, [(path, 0)])

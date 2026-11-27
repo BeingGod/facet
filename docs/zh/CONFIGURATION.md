@@ -2499,6 +2499,7 @@ python facet.py --recompute-text   # 重新读取整个图库
 |---------|---------|-------------|
 | `allowed_target_dirs` | *（键不存在）* | 除扫描目录（始终允许）之外，导出和选片后导出／清理还可以写入的额外根目录 |
 | `cull.allow_trash` | `false` | 是否允许选片后导出／清理的 `trash_rejects` 动作（经由 `send2trash` 送入操作系统回收站，可恢复）；关闭时该选项会被隐藏 |
+| `cull.recycle_bins` | *（未设置）* | 目录 → 回收站目录的映射。删除位于某个键目录下的文件时，按相同的相对路径移入对应回收站（例如 QNAP 共享文件夹用 `{"/data/pictures": "/data/pictures/@Recycle"}`），不再进入操作系统回收站；回收站应与照片在同一挂载内，这样移动只是重命名 |
 
 **多帧照片组与批量操作。** 开启 `hide_brackets` / `hide_panoramas`（默认如此，见[网页查看器 — 默认筛选](VIEWER.md#默认筛选条件)）时，选择项只包含每组的代表帧，因此批量操作只作用于那一帧。选片后导出／清理的 `include_sequence_siblings` 选项会把匹配到的照片扩展到它所在的整组；见[网页查看器 — 选片后导出／清理 § 多帧照片组](VIEWER.md#选片后导出清理)。
 

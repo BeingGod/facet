@@ -2502,6 +2502,7 @@ Album export (`POST /api/albums/{id}/export`, modes `copy`/`symlink`) and cull-t
 |---------|---------|-------------|
 | `allowed_target_dirs` | *(key absent)* | Extra roots export and cull-to-folder may write into, besides the scan directories (always allowed) |
 | `cull.allow_trash` | `false` | Allow cull-to-folder's `trash_rejects` action (OS trash via `send2trash`, recoverable); off hides the option |
+| `cull.recycle_bins` | *(key absent)* | Map of directory → recycle-bin directory. A trashed file under a key moves to the same relative path in its bin (e.g. `{"/data/pictures": "/data/pictures/@Recycle"}` for a QNAP share) instead of the OS trash; keep the bin on the same mount so the move is a rename |
 
 **Multi-frame sets and bulk actions.** With `hide_brackets` / `hide_panoramas` on (the default, see [Web Viewer — Default Filters](VIEWER.md#default-filters)), a selection holds only each set's representative frame, so bulk actions act on that frame only. Cull-to-folder's `include_sequence_siblings` opt-in extends a matched photo to its whole set; see [Web Viewer — Cull to folder § Multi-frame sets](VIEWER.md#cull-to-folder).
 

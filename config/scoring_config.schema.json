@@ -80,7 +80,12 @@
         "cull": {
           "type": "object",
           "properties": {
-            "allow_trash": { "type": "boolean" }
+            "allow_trash": { "type": "boolean" },
+            "recycle_bins": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Directory -> recycle-bin directory. Trashing a file under a key moves it to the same relative path inside the bin (e.g. a NAS share's @Recycle) instead of the OS trash."
+            }
           }
         },
         "mcp": {

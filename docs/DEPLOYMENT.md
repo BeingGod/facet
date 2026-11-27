@@ -123,6 +123,11 @@ With `viewer.cull.allow_trash` on, `trash_rejects` uses `send2trash`. In the shi
 - the directory is created mode `0700`
 
 `.Trash-1000` is visible on the **host**, so a plain `mv` out of `files/` restores a photo.
+
+A NAS share's network recycle bin (QNAP `@Recycle`, Synology `#recycle`) only collects files deleted over SMB or the
+NAS file manager. To send Facet's deletions there, mount the whole share (so the bin and the photos are on one mount)
+and set `viewer.cull.recycle_bins`, e.g. `{"/data/pictures": "/data/pictures/@Recycle"}`: a trashed
+`/data/pictures/Photography/a.jpg` moves to `/data/pictures/@Recycle/Photography/a.jpg`.
 Rescans skip it while `scanning.skip_hidden_directories` is true (the default).
 
 Two exceptions:
