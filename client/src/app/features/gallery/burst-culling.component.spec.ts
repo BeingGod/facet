@@ -572,7 +572,7 @@ describe('BurstCullingComponent', () => {
       store.confirmGroup(group);
 
       expect(store.confirmedGroups().has('1_burst')).toBe(true);
-      expect(store.passingGroups().get('1_burst')).toBe(7);
+      expect(store.passingGroups().get('1_burst')).toBe(store.passCountdownSeconds);
       expect(mockApi.post).not.toHaveBeenCalled();
     });
 
@@ -803,85 +803,33 @@ describe('BurstCullingComponent', () => {
       expect(component['zoom']()).toEqual(crop);
     });
 
-    it('culling feedback: Reject entire burst requires confirmation and refuses changed membership', async () => {
-      const closed = new Subject<boolean>();
-      const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => closed } as never);
+    it('culling feedback: Reject entire burst stages the captured group at once, without a dialog or file deletion', () => {
+      const open = vi.spyOn(TestBed.inject(MatDialog), 'open');
       const first = store.groups()[0];
-      const pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalled());
-      expect(store.confirmedGroups().size).toBe(0);
-      store.groups.update(groups => groups.map(group => group === first ? { ...group, photos: group.photos.slice(1) } : group));
-      closed.next(true); await pending;
-      expect(store.confirmedGroups().size).toBe(0);
-      expect(mockApi.post.mock.calls.filter(([url]) => url === '/culling-groups/confirm')).toHaveLength(0);
-    });
-
-    it('culling feedback: confirming Reject entire burst stages the captured group, not file deletion', async () => {
-      const closed = new Subject<boolean>();
-      const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => closed } as never);
-      const first = store.groups()[0];
-      const pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalled());
-      expect(store.confirmedGroups().size).toBe(0);
-      closed.next(true); await pending;
+      component['rejectEntireGroup'](first);
+      expect(open).not.toHaveBeenCalled();
       expect(store.confirmedGroups().has(store.groupKey(first))).toBe(true);
       expect(store.selectionsMap().get(store.groupKey(first))?.size).toBe(0);
+      expect(store.passingGroups().get(store.groupKey(first))).toBe(store.passCountdownSeconds);
       expect(mockApi.post.mock.calls.filter(([url]) => url === '/culling-groups/confirm')).toHaveLength(0);
     });
 
-    it.each([
-      ['bracket', 'culling.bracket.label'],
-      ['panorama', 'culling.panorama.label'],
-      ['hdr_panorama', 'culling.panorama.hdr_label'],
-    ])('requires an explicit whole-set override for %s and preserves cancellation', async (kind, label) => {
+    it.each(['bracket', 'panorama', 'hdr_panorama'])('rejects a whole %s set without a confirmation dialog', kind => {
       const first = { ...store.groups()[0], sequence_kind: kind };
       store.groups.set([first, ...store.groups().slice(1)]);
-      const closed = new Subject<boolean>();
-      const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => closed } as never);
-      let pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(1));
-      expect(open.mock.calls[0][1]?.data).toEqual({
-        title: 'culling.workspace.reject_sequence_title',
-        message: 'culling.workspace.reject_sequence_body',
-        confirmLabel: 'culling.workspace.reject_sequence_confirm',
-      });
-      expect(mockI18n.t).toHaveBeenCalledWith('culling.workspace.reject_sequence_body', { count: first.photos.length, sequence_count: first.photos.length, kinds: label });
-      closed.next(false); await pending;
-      expect(store.confirmedGroups().size).toBe(0);
-      pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalledTimes(2));
-      closed.next(true); await pending;
+      const open = vi.spyOn(TestBed.inject(MatDialog), 'open');
+      component['rejectEntireGroup'](first);
+      expect(open).not.toHaveBeenCalled();
       expect(store.confirmedGroups().has(store.groupKey(first))).toBe(true);
       expect(store.selectionsMap().get(store.groupKey(first))?.size).toBe(0);
-      expect(mockApi.post.mock.calls.filter(([url]) => url === '/culling-groups/confirm')).toHaveLength(0);
     });
 
-    it.each(['mixed', 'declared'])('warns for protected frames in a %s group', async mode => {
-      const original = store.groups()[0];
-      const first = mode === 'declared' ? { ...original, type: 'bracket' as const }
-        : { ...original, photos: original.photos.map((photo, index) => index === 0 ? { ...photo, sequence_kind: 'bracket' } : photo) };
-      store.groups.set([first]);
-      const closed = new Subject<boolean>();
-      const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => closed } as never);
-      const pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalled());
-      expect(mockI18n.t).toHaveBeenCalledWith('culling.workspace.reject_sequence_body', {
-        count: first.photos.length, sequence_count: mode === 'declared' ? first.photos.length : 1, kinds: 'culling.bracket.label',
-      });
-      closed.next(false); await pending;
-      expect(store.confirmedGroups().size).toBe(0);
-    });
-
-    it('refuses a sequence correction made while Reject all confirmation is open', async () => {
+    it('lets the pass countdown Cancel undo Reject all', () => {
       const first = store.groups()[0];
-      const closed = new Subject<boolean>();
-      const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => closed } as never);
-      const pending = component['rejectEntireGroup'](first);
-      await vi.waitFor(() => expect(open).toHaveBeenCalled());
-      store.patchOverrides(first.photos.map(photo => photo.path), 'bracket');
-      closed.next(true); await pending;
+      component['rejectEntireGroup'](first);
+      store.cancelPass(first);
       expect(store.confirmedGroups().size).toBe(0);
-      expect(mockApi.post.mock.calls.filter(([url]) => url === '/culling-groups/confirm')).toHaveLength(0);
+      expect(store.passingGroups().size).toBe(0);
     });
 
     it('confirms the open group and opens the next group fullscreen', async () => {
@@ -1824,7 +1772,7 @@ describe('BurstCullingComponent', () => {
       store.skipGroup(group);
 
       expect(store.passingGroups().has('1_burst')).toBe(true);
-      expect(store.passingGroups().get('1_burst')).toBe(7);
+      expect(store.passingGroups().get('1_burst')).toBe(store.passCountdownSeconds);
       expect(mockApi.post).not.toHaveBeenCalled();
     });
 
@@ -1840,10 +1788,10 @@ describe('BurstCullingComponent', () => {
       store.skipGroup(group);
 
       vi.advanceTimersByTime(1000);
-      expect(store.passingGroups().get('1_burst')).toBe(6);
+      expect(store.passingGroups().get('1_burst')).toBe(store.passCountdownSeconds - 1);
 
       vi.advanceTimersByTime(1000);
-      expect(store.passingGroups().get('1_burst')).toBe(5);
+      expect(store.passingGroups().get('1_burst')).toBe(store.passCountdownSeconds - 2);
     });
 
     it('should hide group after the countdown elapses', () => {
@@ -4609,7 +4557,7 @@ describe('BurstCullingComponent modals (rendered)', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     const cancel = root.querySelector<HTMLButtonElement>('[data-culling-cancel]')!;
     expect(document.activeElement).toBe(cancel);
-    expect(store.passingGroups().get('1_burst')).toBe(7);
+    expect(store.passingGroups().get('1_burst')).toBe(store.passCountdownSeconds);
     component['lightboxGroupId'].set('1_burst'); fixture.detectChanges();
     expect(root.querySelector('[data-darkroom-pending]')?.textContent).toContain('culling.confirmed_badge');
     expect(root.querySelector<HTMLButtonElement>('[data-darkroom-keep]')!.disabled).toBe(true);

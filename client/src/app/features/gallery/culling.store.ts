@@ -667,7 +667,7 @@ export class CullingStore {
   readonly confirmedGroups = signal<Set<string>>(new Set());
 
   /** Seconds a skipped group stays cancellable before it is hidden. */
-  readonly passCountdownSeconds = 7;
+  readonly passCountdownSeconds = 3;
   /** Map of group key -> remaining countdown seconds for groups being passed */
   readonly passingGroups = signal<Map<string, number>>(new Map());
   /** Set of group keys hidden after pass timeout */
@@ -1556,7 +1556,7 @@ export class CullingStore {
   }
 
   /**
-   * Shared 7s cooldown: a per-second countdown in passingGroups plus a one-shot
+   * Shared 3s cooldown: a per-second countdown in passingGroups plus a one-shot
    * timer that runs onElapsed (hide for skip; commit + hide for confirm). Cancel
    * via cancelPass before it fires fully reverts the action.
    */

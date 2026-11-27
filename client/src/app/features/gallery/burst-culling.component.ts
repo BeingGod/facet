@@ -2,7 +2,7 @@ import { closeDetailsOnEscape } from '../../shared/utils/overlays';
 import { RecomputePoller } from '../../shared/utils/recompute-poller';
 import { DarkroomRenditions } from './darkroom-renditions';
 import { FilenamePipe } from '../../shared/pipes/filename.pipe';
-import { SEQUENCE_KINDS_KEPT_WHOLE, SEQUENCE_KIND_LABELS } from '../../shared/pipes/sequence-kind.pipe';
+import { SEQUENCE_KINDS_KEPT_WHOLE } from '../../shared/pipes/sequence-kind.pipe';
 import { Component, DestroyRef, inject, signal, linkedSignal, computed, effect, untracked, viewChild, ElementRef, OnDestroy, HostListener, TemplateRef, ChangeDetectionStrategy } from '@angular/core';
 import { NavigationStart, NavigationEnd, NavigationCancel, NavigationCancellationCode, NavigationError, NavigationSkipped, NavigationExtras, Router, ActivatedRoute } from '@angular/router';
 import { ViewActionRegistry } from '../../core/agent/view-action-registry.service';
@@ -142,16 +142,8 @@ const PROPOSED_LABEL_KEYS: Record<'keep' | 'reject' | 'unchanged', string> = {
 };
 
 /** The set kind a group is kept whole under, from its own type or its sequence kind, or null. */
-function wholeKindOf(group: CullingGroup): string | null {
-  if (SEQUENCE_KINDS_KEPT_WHOLE.includes(group.type)) return group.type;
-  if (group.sequence_kind && SEQUENCE_KINDS_KEPT_WHOLE.includes(group.sequence_kind)) return group.sequence_kind;
-  return null;
-}
 
 /** What the page remembers of a group's frames: the fields a sequence correction can change. */
-function photoSignature(group: CullingGroup): string {
-  return JSON.stringify(group.photos.map(photo => [photo.path, photo.sequence_kind, photo.sequence_override, photo.sequence_override_pending]));
-}
 
 /** Lightweight scene shape for the album→scene scope cascade (GET /scenes?summary=true). */
 interface SceneSummary {
@@ -1842,32 +1834,11 @@ export class BurstCullingComponent implements OnDestroy {
   protected toggleInspectionStrips(): void { this.inspectionStripsVisible.update(value => !value); }
   protected toggleDarkroomLink(): void { this.darkroomLinked.update(value => !value); }
 
-  protected async rejectEntireGroup(group: CullingGroup): Promise<void> {
+  protected rejectEntireGroup(group: CullingGroup): void {
     if (this.stacksMode() || !this.auth.isEdition() || this.pageNavigating || !this.pageAlive || this.cull.replanning()
       || this.cull.confirmedGroups().has(this.cull.groupKey(group)) || this.dialog.openDialogs.length) return;
+    // No confirmation dialog: the pass countdown's Cancel is the undo.
     const captured = structuredClone(group);
-    const owner = this.auth.identity(), status = this.auth.status(), token = this.auth.token, epoch = this.pageEpoch;
-    const current = () => this.pageAlive && !this.pageNavigating && this.pageEpoch === epoch && this.auth.isEdition()
-      && this.auth.identity() === owner && this.auth.status() === status && this.auth.token === token
-      && !this.cull.replanning() && !this.cull.confirmedGroups().has(this.cull.groupKey(captured))
-      && this.visibleGroups().some(item => this.cull.groupKey(item) === this.cull.groupKey(captured)
-        && item.sequence_kind === captured.sequence_kind
-        && photoSignature(item) === photoSignature(captured));
-    const { ConfirmDialogComponent } = await import('../../shared/components/confirm-dialog/confirm-dialog.component');
-    if (!current()) return;
-    const wholeKind = wholeKindOf(captured);
-    const memberKinds = captured.photos.flatMap(photo => photo.sequence_kind && SEQUENCE_KINDS_KEPT_WHOLE.includes(photo.sequence_kind) ? [photo.sequence_kind] : []);
-    const sequenceCount = wholeKind ? captured.photos.length : memberKinds.length;
-    const sequence = sequenceCount > 0;
-    const kinds = [...new Set(wholeKind ? [wholeKind] : memberKinds)].sort().map(kind => this.i18n.t(SEQUENCE_KIND_LABELS[kind])).join(', ');
-    const ref = this.dialog.open(ConfirmDialogComponent, { width: '95vw', maxWidth: '30rem', data: {
-      title: this.i18n.t(sequence ? I18N.culling.workspace.reject_sequence_title : I18N.culling.workspace.reject_all_title),
-      message: sequence
-        ? this.i18n.t(I18N.culling.workspace.reject_sequence_body, { count: captured.photos.length, sequence_count: sequenceCount, kinds })
-        : this.i18n.t(I18N.culling.workspace.reject_all_body, { count: captured.photos.length }),
-      confirmLabel: this.i18n.t(sequence ? I18N.culling.workspace.reject_sequence_confirm : I18N.culling.workspace.reject_all),
-    } });
-    if (!await firstValueFrom(ref.afterClosed()) || !current()) return;
     if (this.cull.rejectEntireGroup(captured) && this.lightboxGroup()) {
       const next = this.nextUnconfirmedGroupAfter(captured);
       if (next) this.openLightbox(next, 0); else this.closeLightbox();
