@@ -3548,7 +3548,12 @@
   },
   "download": {
     "type_original": "Original",
-    "type_raw": "Fichier RAW"
+    "type_raw": "Fichier RAW",
+    "companions_title": "Télécharger {count} photos",
+    "companions_message": "Télécharger aussi les fichiers associés :",
+    "include_raw": "Fichiers RAW ({count})",
+    "include_xmp": "Fichiers XMP ({count})",
+    "companions_confirm": "Télécharger"
   },
   "export": {
     "action": "Exporter vers l'éditeur",

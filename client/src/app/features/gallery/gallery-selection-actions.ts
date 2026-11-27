@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { AlbumService, Album } from '../../core/services/album.service';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { DownloadCompanionsService } from '../../core/services/download-companions.service';
 import { DownloadProgressService } from '../../core/services/download-progress.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { MAX_REFRESH_PATHS, PhotoActionsService } from '../../core/services/photo-actions.service';
@@ -51,6 +52,7 @@ export class GallerySelectionActions {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ApiService);
   private readonly downloadProgress = inject(DownloadProgressService);
+  private readonly downloadCompanions = inject(DownloadCompanionsService);
   private readonly albumService = inject(AlbumService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
@@ -344,12 +346,21 @@ export class GallerySelectionActions {
     // One blob fetch and one synthetic anchor click per photo, serially: past a
     // few dozen that is a browser-melting amount of work to start by accident,
     // and both "Keep top N%" and a whole-view selection reach thousands.
-    if (paths.length > GallerySelectionActions.DOWNLOAD_CONFIRM_PHOTOS && !await this.confirmDownload(paths.length)) {
+    const large = paths.length > GallerySelectionActions.DOWNLOAD_CONFIRM_PHOTOS;
+    // Originals offer each photo's RAW and XMP files; that dialog states the
+    // count, so it carries the large-download warning instead of a second one.
+    const withCompanions = type === 'original'
+      ? await this.downloadCompanions.plan(paths, large
+        ? this.i18n.t(I18N.gallery.selection.download_confirm_message, { count: paths.length })
+        : undefined)
+      : undefined;
+    if (withCompanions === null) return;
+    if (!withCompanions && large && !await this.confirmDownload(paths.length)) {
       return;
     }
     this.downloading.set(true);
     try {
-      await this.downloadProgress.run(paths.map(path => ({
+      await this.downloadProgress.run(withCompanions ?? paths.map(path => ({
         url: this.api.downloadUrl(path, type, profile),
         filename: basename(path),
       })));

@@ -167,6 +167,39 @@ def test_raw_download_uses_the_companions_actual_filename(edition_client, seed_p
     assert raw.read_bytes() == b'RAW fixture'
 
 
+
+def test_download_companions_lists_raw_and_xmp(edition_client, seed_photos_prefix, tmp_path, monkeypatch):
+    from api import config
+
+    developed = tmp_path / 'shot.jpg'
+    developed.write_bytes(b'JPEG fixture')
+    (tmp_path / 'shot.CR3').write_bytes(b'RAW fixture')
+    (tmp_path / 'shot.xmp').write_bytes(b'<x:xmpmeta/>')
+    sidecar_only = tmp_path / 'edit.jpg'
+    sidecar_only.write_bytes(b'JPEG fixture')
+    (tmp_path / 'edit.jpg.xmp').write_bytes(b'<x:xmpmeta>edit</x:xmpmeta>')
+    plain = tmp_path / 'plain.jpg'
+    plain.write_bytes(b'JPEG fixture')
+    monkeypatch.setitem(config.VIEWER_CONFIG, 'scan_directories', [str(tmp_path)])
+    seed_photos_prefix(str(tmp_path), [{'path': str(path), 'filename': path.name}
+                                       for path in (developed, sidecar_only, plain)])
+
+    response = edition_client.post('/api/download/companions', json={
+        'paths': [str(developed), str(sidecar_only), str(plain), str(tmp_path / 'unknown.jpg')]})
+    assert response.status_code == 200, response.text
+    assert response.json()['companions'] == [
+        {'path': str(developed), 'raw': 'shot.CR3', 'xmp': 'shot.xmp'},
+        {'path': str(sidecar_only), 'raw': None, 'xmp': 'edit.jpg.xmp'},
+    ]
+
+    xmp = edition_client.get('/api/download', params={'path': str(sidecar_only), 'type': 'xmp'})
+    assert xmp.status_code == 200, xmp.text
+    assert xmp.content == b'<x:xmpmeta>edit</x:xmpmeta>'
+    assert 'filename="edit.jpg.xmp"' in xmp.headers['content-disposition']
+    missing = edition_client.get('/api/download', params={'path': str(plain), 'type': 'xmp'})
+    assert missing.status_code == 404
+
+
 @NATIVE_SPELLING
 def test_cached_companion_tracks_a_case_only_rename(tmp_path):
     raw = tmp_path / 'shot.CR2'

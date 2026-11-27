@@ -22,6 +22,8 @@ export type ComparisonStats = components['schemas']['ComparisonStatsResponse'];
 
 export type DownloadOption = components['schemas']['DownloadOption'];
 
+export type DownloadCompanion = components['schemas']['DownloadCompanion'];
+
 export type PhotoProvenance = components['schemas']['PhotoProvenance'];
 
 export type RelatedFilesResponse = components['schemas']['RelatedFilesResponse'];

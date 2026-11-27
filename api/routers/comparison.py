@@ -30,7 +30,8 @@ from api.db_helpers import (
     get_visibility_clause, library_lock_held_error, refuse_while_gallery_index_build_runs,
 )
 from api.models.comparison import (
-    NextPairResponse, DownloadOptionsResponse, CategoryPrioritiesResponse,
+    NextPairResponse, DownloadOptionsResponse, DownloadCompanionsBody, DownloadCompanionsResponse,
+    CategoryPrioritiesResponse,
     ScoringContextsResponse, ComparisonStatsResponse, CategoryWeightsResponse,
     LearnedWeightsResponse, SuggestFiltersResponse, CategoryOverrideResponse,
     WeightSnapshotsResponse, RestoreWeightsResponse,
@@ -282,6 +283,59 @@ def _download_options_raw(db_path: str, real_disk: str, user: Optional[CurrentUs
     return _authorized_download_raw(db_path, real_disk, user)
 
 
+def _download_xmp(real_disk: str, raw_path: str | None) -> str | None:
+    """The XMP sidecar beside a photo or its RAW: ``shot.jpg.xmp``, ``shot.xmp`` or ``shot.CR3.xmp``.
+
+    Callers have already checked the photo's visibility; the sidecar is only
+    looked up as a sibling of that photo or of its authorized RAW companion.
+    """
+    photo = Path(real_disk)
+    sources = [photo] + ([Path(raw_path)] if raw_path and Path(raw_path) != photo else [])
+    candidates: list[Path] = []
+    for source in sources:
+        for suffix in ('.xmp', '.XMP'):
+            candidates.append(source.with_name(source.name + suffix))
+            candidates.append(source.with_name(source.stem + suffix))
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _download_companions(paths: list[str], user: Optional[CurrentUser]) -> list[dict]:
+    companions = []
+    for path in dict.fromkeys(paths):
+        try:
+            db_path, real_disk, _ = _validate_and_resolve(path, user)
+        except HTTPException:
+            continue
+        except OSError:
+            continue
+        try:
+            raw_path = _download_options_raw(db_path, real_disk, user)
+        except (HTTPException, OSError):
+            raw_path = None
+        raw_name = os.path.basename(raw_path) if raw_path else None
+        xmp_path = _download_xmp(real_disk, raw_path)
+        if raw_name or xmp_path:
+            companions.append({'path': db_path, 'raw': raw_name,
+                               'xmp': os.path.basename(xmp_path) if xmp_path else None})
+    return companions
+
+
+@router.post("/api/download/companions", response_model=DownloadCompanionsResponse)
+async def api_download_companions(
+    body: DownloadCompanionsBody,
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """List the RAW and XMP files that can be downloaded alongside each photo."""
+    return {'companions': await asyncio.to_thread(_download_companions, body.paths, user)}
+
+
 @router.get("/api/download/options", response_model=DownloadOptionsResponse, response_model_exclude_unset=True)
 def api_download_options(
     path: str = Query(...),
@@ -309,7 +363,7 @@ def api_download_options(
 @router.get("/api/download")
 async def api_download_single(
     path: str = Query(...),
-    type: Literal['original', 'darktable', 'raw'] = Query('original'),
+    type: Literal['original', 'darktable', 'raw', 'xmp'] = Query('original'),
     profile: str = Query(''),
     user: Optional[CurrentUser] = Depends(get_optional_user),
 ):
@@ -320,6 +374,7 @@ async def api_download_single(
     - ``original`` — serve the file as-is (JPG/HEIF) or rawpy-converted (RAW).
     - ``darktable`` — convert companion RAW with a named darktable profile.
     - ``raw`` — serve the companion RAW file as-is.
+    - ``xmp`` — serve the XMP sidecar of the photo or its companion RAW.
     - If no companion RAW exists, ``raw`` and ``darktable`` return the original.
     """
     from api.raw_processing import convert_raw_darktable_async
@@ -351,6 +406,18 @@ async def api_download_single(
             BytesIO(jpeg_bytes),
             media_type='image/jpeg',
             headers={'Content-Disposition': f'attachment; filename="{download_name}"'},
+        )
+
+    # --- XMP sidecar download ---
+    if type == 'xmp':
+        raw_path = await asyncio.to_thread(_authorized_download_raw, db_path, real_disk, user)
+        xmp_path = await asyncio.to_thread(_download_xmp, real_disk, raw_path)
+        if not xmp_path:
+            raise HTTPException(404, 'XMP file not found')
+        return FileResponse(
+            xmp_path,
+            media_type='application/rdf+xml',
+            filename=os.path.basename(xmp_path),
         )
 
     # --- RAW file download ---

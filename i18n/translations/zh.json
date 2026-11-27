@@ -3548,7 +3548,12 @@
   },
   "download": {
     "type_original": "原图",
-    "type_raw": "RAW 文件"
+    "type_raw": "RAW 文件",
+    "companions_title": "下载 {count} 张照片",
+    "companions_message": "同时下载对应的文件：",
+    "include_raw": "RAW 文件（{count} 个）",
+    "include_xmp": "XMP 文件（{count} 个）",
+    "companions_confirm": "下载"
   },
   "export": {
     "action": "导出到后期软件",

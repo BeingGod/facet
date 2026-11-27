@@ -1594,11 +1594,32 @@ export interface paths {
          *     - ``original`` — serve the file as-is (JPG/HEIF) or rawpy-converted (RAW).
          *     - ``darktable`` — convert companion RAW with a named darktable profile.
          *     - ``raw`` — serve the companion RAW file as-is.
+         *     - ``xmp`` — serve the XMP sidecar of the photo or its companion RAW.
          *     - If no companion RAW exists, ``raw`` and ``darktable`` return the original.
          */
         get: operations["api_download_single_api_download_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/download/companions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Download Companions
+         * @description List the RAW and XMP files that can be downloaded alongside each photo.
+         */
+        post: operations["api_download_companions_api_download_companions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7410,6 +7431,28 @@ export interface components {
         DeletePlaceResponse: {
             /** Success */
             success: boolean;
+        };
+        /** DownloadCompanion */
+        DownloadCompanion: {
+            /** Path */
+            path: string;
+            /** Raw */
+            raw?: string | null;
+            /** Xmp */
+            xmp?: string | null;
+        };
+        /** DownloadCompanionsBody */
+        DownloadCompanionsBody: {
+            /** Paths */
+            paths?: string[];
+        };
+        /** DownloadCompanionsResponse */
+        DownloadCompanionsResponse: {
+            /**
+             * Companions
+             * @default []
+             */
+            companions?: components["schemas"]["DownloadCompanion"][];
         };
         /** DownloadOption */
         DownloadOption: {
@@ -14372,7 +14415,7 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
-                type?: "original" | "darktable" | "raw";
+                type?: "original" | "darktable" | "raw" | "xmp";
                 profile?: string;
             };
             header?: never;
@@ -14388,6 +14431,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_download_companions_api_download_companions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadCompanionsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadCompanionsResponse"];
                 };
             };
             /** @description Validation Error */

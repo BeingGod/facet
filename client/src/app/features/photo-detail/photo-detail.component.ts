@@ -57,6 +57,8 @@ import { HistogramMode, isHistogramMode } from '../../shared/utils/histogram';
 import { ComparisonCategoryExplainerComponent } from '../comparison/comparison-category-explainer.component';
 import { DownloadOption } from '../../core/api/types';
 import { downloadFile } from '../../shared/utils/download';
+import { DownloadCompanionsService } from '../../core/services/download-companions.service';
+import { DownloadProgressService } from '../../core/services/download-progress.service';
 import { basename } from '../../shared/utils/clipboard';
 import { GalleryStore } from '../gallery/gallery.store';
 import { aspectOf } from '../gallery/gallery-rows.util';
@@ -755,6 +757,8 @@ export class PhotoDetailComponent extends PhotoDetailBase implements OnInit {
   protected readonly store = inject(GalleryStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly downloadCompanions = inject(DownloadCompanionsService);
+  private readonly downloadProgress = inject(DownloadProgressService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly staleness = inject(StalenessGuardFactory);
   private readonly assistantChanges = inject(AssistantChangesService);
@@ -1380,6 +1384,25 @@ export class PhotoDetailComponent extends PhotoDetailBase implements OnInit {
   }
 
   protected async download(path: string, type = 'original', profile?: string): Promise<void> {
+    if (type === 'original') {
+      this.downloading.set(true);
+      let withCompanions: Awaited<ReturnType<DownloadCompanionsService['plan']>>;
+      try {
+        withCompanions = await this.downloadCompanions.plan([path]);
+      } finally {
+        this.downloading.set(false);
+      }
+      if (withCompanions === null) return;
+      if (withCompanions) {
+        this.downloading.set(true);
+        try {
+          await this.downloadProgress.run(withCompanions);
+        } finally {
+          this.downloading.set(false);
+        }
+        return;
+      }
+    }
     this.downloading.set(true);
     try {
       await downloadFile(this.api.getRaw(this.api.downloadUrl(path, type, profile)), basename(path));

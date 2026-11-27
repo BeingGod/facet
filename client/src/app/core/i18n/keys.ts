@@ -3588,6 +3588,11 @@ export const I18N = {
   download: {
     type_original: "download.type_original",
     type_raw: "download.type_raw",
+    companions_title: "download.companions_title",
+    companions_message: "download.companions_message",
+    include_raw: "download.include_raw",
+    include_xmp: "download.include_xmp",
+    companions_confirm: "download.companions_confirm",
   },
   export: {
     action: "export.action",

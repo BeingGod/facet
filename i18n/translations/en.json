@@ -3573,7 +3573,12 @@
   },
   "download": {
     "type_original": "Original",
-    "type_raw": "RAW file"
+    "type_raw": "RAW file",
+    "companions_title": "Download {count} photos",
+    "companions_message": "Also download the matching files:",
+    "include_raw": "RAW files ({count})",
+    "include_xmp": "XMP sidecars ({count})",
+    "companions_confirm": "Download"
   },
   "export": {
     "action": "Export to editor",

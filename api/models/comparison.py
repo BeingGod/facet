@@ -2,7 +2,7 @@
 
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NextPairResponse(BaseModel):
@@ -24,6 +24,20 @@ class DownloadOption(BaseModel):
 
 class DownloadOptionsResponse(BaseModel):
     options: list[DownloadOption] = []
+
+
+class DownloadCompanionsBody(BaseModel):
+    paths: list[str] = Field(default_factory=list, max_length=10000)
+
+
+class DownloadCompanion(BaseModel):
+    path: str
+    raw: Optional[str] = None
+    xmp: Optional[str] = None
+
+
+class DownloadCompanionsResponse(BaseModel):
+    companions: list[DownloadCompanion] = []
 
 
 class CategoryPriorityItem(BaseModel):
