@@ -582,8 +582,9 @@ export class GallerySelectionActions {
    * `photos` server-side by the time this response returns.
    */
   async removeSelectedFromCatalog(): Promise<void> {
-    if (this.viewScoped()) return;
-    await this.photoActions.removeFromCatalog([...this.selectedPaths()]);
+    const paths = await this.resolveSelectionPaths(null);
+    if (!paths?.length) return;
+    await this.photoActions.removeFromCatalog(paths);
   }
 
   async deleteSelected(explicitPaths?: string[]): Promise<void> {

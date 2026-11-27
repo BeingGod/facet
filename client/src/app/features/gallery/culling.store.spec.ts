@@ -108,6 +108,15 @@ describe('CullingStore', () => {
       expect([...store.selectionsMap().get('1_burst') ?? []]).toEqual(['/a.jpg']);
     });
 
+    it('also pre-selects photos already marked kept in an earlier review', async () => {
+      const response = structuredClone(GROUPS_RESPONSE);
+      Object.assign(response.groups[1].photos[1], { is_kept: 1 });
+      api.get.mockImplementation((path: string) => of(path === '/culling-groups' ? response : {}));
+      await store.loadGroups();
+      expect([...store.selectionsMap().get('2_similar') ?? []].sort()).toEqual(['/c.jpg', '/d.jpg']);
+      expect([...store.selectionsMap().get('1_burst') ?? []]).toEqual(['/a.jpg']);
+    });
+
     it('reports a failed load as a notice and leaves the feed untouched', async () => {
       api.get.mockReturnValue(throwError(() => new Error('boom')));
       await store.loadGroups();

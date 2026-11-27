@@ -1255,7 +1255,8 @@ export class CullingStore {
 
   /**
    * Derive the auto-keep set for a group from the current strictness (0-100).
-   * The best photo is always kept; additional photos whose burst_score falls
+   * The best photo is always kept, and so is every photo already marked kept
+   * in an earlier review; additional photos whose burst_score falls
    * within a strictness-derived margin of the best are also kept. At strictness
    * 100 only the single best survives; at 0 everything within ~5 points stays.
    *
@@ -1273,6 +1274,9 @@ export class CullingStore {
     const best = group.best_path || group.photos[0]?.path;
     if (!best) return new Set<string>();
     const kept = new Set<string>([best]);
+    for (const photo of group.photos) {
+      if (photo.is_kept) kept.add(photo.path);
+    }
 
     const bestScore = group.photos.find(p => p.path === best)?.burst_score
       ?? Math.max(0, ...group.photos.map(p => p.burst_score));

@@ -301,6 +301,25 @@ def attach_keeper_probs(conn, groups, user_id):
     _for_each_group_probs(conn, groups, user_id, apply)
 
 
+def drop_fully_kept_groups(conn, groups, user_id):
+    """Hide groups whose every photo the caller already marked kept: nothing is left to cull there.
+
+    Read per request like ``attach_user_marks`` (never cached), so a group comes back as soon as one of its
+    photos loses its keep mark.
+    """
+    paths = {p['path'] for g in groups for p in g.get('photos') or [] if p.get('path')}
+    if not paths:
+        return groups
+    from api.logical_culling import read_culling_labels
+    labels = read_culling_labels(conn, user_id, paths, include_kept=True)
+
+    def fully_kept(group):
+        members = [p['path'] for p in group.get('photos') or [] if p.get('path')]
+        return bool(members) and all(labels.get(path) is not None and labels[path].kept for path in members)
+
+    return [g for g in groups if not fully_kept(g)]
+
+
 def attach_user_marks(conn, groups, user_id):
     """Stamp each photo of ``groups`` with the caller's ``is_rejected`` / ``is_favorite`` / ``star_rating`` / ``is_kept``.
 
@@ -1759,6 +1778,7 @@ def api_culling_groups(
                     if library_token == _library_change_token():
                         _store_culling_groups(cache_key, now, all_groups, generation)
 
+            all_groups = drop_fully_kept_groups(conn, all_groups, user_id)
             total_groups = len(all_groups)
             total_pages, offset = paginate(total_groups, page, per_page)
             # Request-local annotations must not mutate photos shared by cached pages

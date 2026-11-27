@@ -476,6 +476,38 @@ class TestCullingGroupsEndpoint:
         assert body["groups"][0]["moment"] == "beach"
         scene_fetch.assert_called_once()
 
+    def test_fully_kept_groups_are_hidden(self, client):
+        from api.db_helpers import Labels
+        mock_conn = mock.MagicMock()
+
+        def scene(group_id, paths):
+            return {
+                "group_id": group_id, "type": "scene", "reason": "beach",
+                "photos": [{"path": p} for p in paths], "best_path": paths[0], "count": len(paths),
+                "category": None, "start": "2026:01:01 10:00:00", "end": "2026:01:01 10:05:00",
+                "moment": "beach", "moment_confidence": 0.8,
+            }
+
+        groups = [scene(0, ["/k1.jpg", "/k2.jpg"]), scene(1, ["/k3.jpg", "/u1.jpg"])]
+        labels = {
+            "/k1.jpg": Labels(0, 0, 0, 1), "/k2.jpg": Labels(0, 0, 0, 1),
+            "/k3.jpg": Labels(0, 0, 0, 1), "/u1.jpg": Labels(0, 0, 0, 0),
+        }
+        with (
+            mock.patch("api.routers.burst_culling.get_db", lambda: _cm(mock_conn)),
+            mock.patch("api.routers.burst_culling.get_visibility_clause", return_value=("1=1", [])),
+            mock.patch("api.logical_culling.has_groups", return_value=False),
+            mock.patch("api.logical_culling.read_culling_labels",
+                       side_effect=lambda conn, user_id, paths, include_kept=False:
+                       {p: labels[p] for p in paths if p in labels}),
+            mock.patch("api.routers.burst_culling._fetch_scene_groups", return_value=groups),
+        ):
+            resp = client.get("/api/culling-groups?group_by=scene")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [g["group_id"] for g in body["groups"]] == [1]
+        assert body["total_groups"] == 1
+
     def test_group_by_burst_skips_similar_feed(self, client):
         mock_conn = mock.MagicMock()
         burst_groups = [{

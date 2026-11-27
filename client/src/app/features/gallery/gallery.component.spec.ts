@@ -3353,11 +3353,13 @@ describe('GalleryComponent', () => {
       expect(mockStore.selectedPaths()).toEqual(new Set(['/a.jpg', '/b.jpg']));
     });
 
-    it('refuses whole-view scope rather than materializing it into catalog deletion', async () => {
+    it('materializes a whole-view selection into explicit paths for catalog removal', async () => {
       const remove = vi.spyOn(TestBed.inject(PhotoActionsService), 'removeFromCatalog').mockResolvedValue([]);
       mockStore.viewScopeSelected.set(true);
+      mockStore.pathsInView = vi.fn(async () => ['/x.jpg', '/y.jpg']);
       await component.selectionActions.removeSelectedFromCatalog();
-      expect(remove).not.toHaveBeenCalled();
+      expect(mockStore.pathsInView).toHaveBeenCalledOnce();
+      expect(remove).toHaveBeenCalledExactlyOnceWith(['/x.jpg', '/y.jpg']);
     });
   });
 
@@ -4403,8 +4405,8 @@ describe('GalleryComponent', () => {
       const reasons: [string, string][] = [
         [I18N.stacks.create, I18N.stacks.explicit_only],
         [I18N.photo_refresh.title, S.explicit_required],
-        [I18N.photo_detail.remove_catalog.action, S.explicit_required],
       ];
+      expect(menuItem(actions, I18N.photo_detail.remove_catalog.action)!.getAttribute('aria-disabled')).toBeNull();
       for (const [label, why] of reasons) {
         const item = menuItem(actions, label)!;
         expect(item.disabled, label).toBe(false);

@@ -159,9 +159,9 @@ describe('GalleryActionsSheetComponent', () => {
     const expected: [string, string][] = [
       [I18N.stacks.create, I18N.stacks.explicit_only],
       [I18N.photo_refresh.title, S.explicit_required],
-      [I18N.photo_detail.remove_catalog.action, S.explicit_required],
     ];
     expect(button(el, I18N.cull.delete_action)!.disabled).toBe(false);
+    expect(button(el, I18N.photo_detail.remove_catalog.action)!.disabled).toBe(false);
     for (const [name, why] of expected) {
       const target = button(el, name)!;
       expect(target.disabled, name).toBe(true);

@@ -143,8 +143,7 @@ export interface GalleryActionsSheetData {
 
       @if (data.isEdition) {
         <div [class]="section">
-          <button [class]="row" [disabled]="data.viewScoped" [attr.aria-describedby]="data.viewScoped ? 'actions-sheet-remove-reason' : null" (click)="pick({ kind: 'remove-catalog' })"><mat-icon aria-hidden="true">hide_image</mat-icon>{{ I18N.photo_detail.remove_catalog.action | translate }}</button>
-          @if (data.viewScoped) { <p id="actions-sheet-remove-reason" [class]="reason">{{ I18N.gallery.selection.explicit_required | translate }}</p> }
+          <button [class]="row" (click)="pick({ kind: 'remove-catalog' })"><mat-icon aria-hidden="true">hide_image</mat-icon>{{ I18N.photo_detail.remove_catalog.action | translate }}</button>
           @if (data.trashAvailable) {
             <button [class]="row" (click)="pick({ kind: 'delete' })"><mat-icon aria-hidden="true">delete</mat-icon>{{ I18N.cull.delete_action | translate }}</button>
           }
