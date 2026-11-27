@@ -8,7 +8,6 @@ from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from api.config import VIEWER_CONFIG
 from api.database import get_async_db
 from api.models.gallery import SharedPhoto
 from api.shared_assets import MAX_ASSET_REFERENCE_LENGTH, public_photo_fields, shared_asset_matches, shared_asset_row_id
@@ -117,9 +116,7 @@ async def shared_image(album_id: int, request: Request, asset_id: str = Query(..
 
 def _download(row):
     path = row['path']
-    disk = resolve_photo_disk_path(path)
-    quality = VIEWER_CONFIG['display'].get('image_jpeg_quality', 96)
-    return _serve_original(disk, path, quality, row['sequence_kind'])
+    return _serve_original(resolve_photo_disk_path(path))
 
 
 @router.get('/api/shared/album/{album_id}/media/download')

@@ -636,24 +636,19 @@ class TestEverySurfaceAgrees:
         assert (db_path, real_disk, kind) == ('/photos/a.CR2', '/disk/a.CR2', 'bracket')
         assert queried['sql'].count('SELECT') == 1
 
-    @pytest.mark.parametrize("kind", ['bracket', 'hdr_panorama', 'panorama', None])
-    def test_the_download_converts_with_the_rows_sequence_kind(self, monkeypatch, kind):
-        """A downloaded bracket frame is on its way to an HDR merge, so it must
-        carry the same uncorrected render the loupe showed."""
+    def test_the_download_serves_a_standalone_raw_unconverted(self, monkeypatch, tmp_path):
+        """The original of a RAW-only photo is the RAW itself, never a JPEG render."""
         from api.routers import comparison
 
-        seen = {}
+        monkeypatch.setattr('api.raw_processing.convert_raw_to_jpeg',
+                            lambda *args: pytest.fail('a RAW download must not be converted'))
+        raw = tmp_path / 'a.RAF'
+        raw.write_bytes(b'RAF fixture')
 
-        def _record(path, quality, sequence_kind):
-            seen['kind'] = sequence_kind
-            return b'jpeg'
+        response = comparison._serve_original(str(raw))
 
-        monkeypatch.setattr('api.raw_processing.convert_raw_to_jpeg', _record)
-
-        comparison._serve_original('/disk/a.CR2', '/photos/a.CR2', 96, kind)
-
-        assert seen['kind'] == kind
-
+        assert response.path == str(raw)
+        assert response.filename == 'a.RAF'
 
 class TestRefreshThumbnailsPool:
     """``--refresh-thumbnails`` renders through ``load_display_image``, which

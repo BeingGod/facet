@@ -411,8 +411,8 @@ def test_no_route_runs_a_blocking_opener_on_the_event_loop(seeded_photos, seeded
     assert len(statuses) == len(REQUESTS)
 
 
-def test_a_raw_download_converts_off_the_event_loop(tmp_path, seed_photos_prefix):
-    """``/api/download`` of a standalone RAW decodes it with rawpy (seconds of CPU)."""
+def test_a_raw_download_is_served_off_the_event_loop(tmp_path, seed_photos_prefix):
+    """``/api/download`` of a standalone RAW serves the file itself, never on the loop."""
     raw = tmp_path / "frame.cr2"
     raw.write_bytes(b"not really a raw file")
     seed_photos_prefix(str(tmp_path), [{"path": str(raw), "filename": raw.name}])

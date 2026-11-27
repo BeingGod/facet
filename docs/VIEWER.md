@@ -949,7 +949,7 @@ Write ratings, favorites and rejects to XMP sidecars so darktable, Lightroom and
 
 Download photos from photo detail or the selection bar. The per-photo download menu lists the types available for that photo, including configured darktable profiles:
 
-- **Original** (`original`) — the file as-is (JPG/HEIF), or a RAW converted to JPEG with the same rendering the viewer shows. A bracketed frame therefore downloads without exposure correction — see [CONFIGURATION.md](CONFIGURATION.md#bracketed-frames-render-uncorrected).
+- **Original** (`original`) — the file as-is; a RAW-only photo downloads as its RAW file (CR3, RAF, …), never converted. When the photos have a companion RAW or an XMP sidecar, a dialog offers to download those too.
 - **darktable** (`darktable`) — the companion RAW converted with a named darktable profile. Falls back to the original if there is no companion RAW.
 - **RAW** (`raw`) — the companion RAW file as-is. Not available in shared albums.
 

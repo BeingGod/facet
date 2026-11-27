@@ -319,7 +319,8 @@ def _download_companions(paths: list[str], user: Optional[CurrentUser]) -> list[
             raw_path = _download_options_raw(db_path, real_disk, user)
         except (HTTPException, OSError):
             raw_path = None
-        raw_name = os.path.basename(raw_path) if raw_path else None
+        # A standalone RAW is its own original download, so it lists no RAW companion.
+        raw_name = os.path.basename(raw_path) if raw_path and Path(raw_path) != Path(real_disk) else None
         xmp_path = _download_xmp(real_disk, raw_path)
         if raw_name or xmp_path:
             companions.append({'path': db_path, 'raw': raw_name,
@@ -371,7 +372,7 @@ async def api_download_single(
 
     Supports three download types via the ``type`` query parameter:
 
-    - ``original`` — serve the file as-is (JPG/HEIF) or rawpy-converted (RAW).
+    - ``original`` — serve the file as-is, a standalone RAW included.
     - ``darktable`` — convert companion RAW with a named darktable profile.
     - ``raw`` — serve the companion RAW file as-is.
     - ``xmp`` — serve the XMP sidecar of the photo or its companion RAW.
@@ -389,7 +390,7 @@ async def api_download_single(
         raw_path = await asyncio.to_thread(_authorized_download_raw, db_path, real_disk, user)
         if not raw_path:
             if await asyncio.to_thread(_missing_raw_fallback, real_disk):
-                return await asyncio.to_thread(_serve_original, real_disk, db_path, quality, sequence_kind)
+                return await asyncio.to_thread(_serve_original, real_disk)
             raise HTTPException(404, 'RAW file not found')
 
         try:
@@ -425,7 +426,7 @@ async def api_download_single(
         raw_path = await asyncio.to_thread(_authorized_download_raw, db_path, real_disk, user)
         if not raw_path:
             if await asyncio.to_thread(_missing_raw_fallback, real_disk):
-                return await asyncio.to_thread(_serve_original, real_disk, db_path, quality, sequence_kind)
+                return await asyncio.to_thread(_serve_original, real_disk)
             raise HTTPException(404, 'RAW file not found')
 
         return FileResponse(
@@ -436,36 +437,15 @@ async def api_download_single(
 
     # --- Original file download ---
     # rawpy decodes a standalone RAW here: seconds of CPU, so off the event loop.
-    return await asyncio.to_thread(_serve_original, real_disk, db_path, quality, sequence_kind)
+    return await asyncio.to_thread(_serve_original, real_disk)
 
 
-def _serve_original(real_disk: str, db_path: str, quality: int,
-                    sequence_kind: Optional[str] = None):
-    """Serve a photo file as-is, converting standalone RAW via rawpy.
+def _serve_original(real_disk: str):
+    """Serve a photo file as-is -- a standalone RAW (CR3, RAF, ...) included.
 
-    "As-is" is why a bracketed frame is converted with no correction at all,
-    exactly as ``/image`` serves it: the camera preview's tone curve and the
-    ``bright`` gain both crush the highlight headroom the bracket was shot to
-    capture, and a downloaded bracket frame is on its way to an HDR merge where
-    that headroom is the payload. The edited look is what the ``darktable``
-    download type is for.
+    A RAW is never converted here: the developed look is what the ``darktable``
+    download type is for, and a converted JPEG would lose the RAW's data.
     """
-    from api.raw_processing import convert_raw_to_jpeg
-
-    if Path(real_disk).suffix.lower() in RAW_EXTENSIONS:
-        try:
-            jpeg_bytes = convert_raw_to_jpeg(real_disk, quality, sequence_kind)
-        except Exception:
-            logger.exception("Failed to convert RAW file for download: %s", real_disk)
-            raise HTTPException(status_code=500, detail='Failed to convert RAW file')
-
-        download_name = os.path.splitext(os.path.basename(db_path))[0] + '.jpg'
-        return StreamingResponse(
-            BytesIO(jpeg_bytes),
-            media_type='image/jpeg',
-            headers={'Content-Disposition': f'attachment; filename="{download_name}"'},
-        )
-
     return FileResponse(
         real_disk,
         media_type='application/octet-stream',

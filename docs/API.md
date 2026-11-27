@@ -356,7 +356,8 @@ Regrouping bounds both the result and the complete affected preview to 1000 phot
 
 **Download types:**
 
-- `original`: the file as-is (JPG/HEIF), or RAW converted to JPEG with the viewer's rendering. A bracketed frame downloads with no camera preview and no exposure gain; see [CONFIGURATION.md](CONFIGURATION.md#bracketed-frames-render-uncorrected).
+- `original`: the file as-is — a RAW-only photo downloads as its RAW file (CR3, RAF, …), never converted.
+- `xmp`: the XMP sidecar beside the photo or its companion RAW (`shot.jpg.xmp`, `shot.xmp`, `shot.CR3.xmp`); 404 when none exists. `POST /api/download/companions` lists each photo's downloadable RAW and XMP names.
 - `darktable`: the companion RAW converted with a named darktable profile (requires `profile`). Falls back to `original` without a companion RAW.
 - `raw`: the companion RAW as-is (not available in shared albums).
 
